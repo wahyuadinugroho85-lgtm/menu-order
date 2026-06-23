@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Manajemen & Order QR Kasir</title>
+    <style>
+        /* --- GAYA TAMPILAN UMUM --- */
+        body { font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px; color: #333; margin: 0; }
+        .container { max-width: 650px; background: white; margin: 0 auto 30px auto; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); box-sizing: border-box; }
+        h2, h3 { color: #2c3e50; margin-bottom: 20px; text-align: center; }
+        
+        /* Area Pengunggah Logo */
+        .logo-wrapper { text-align: center; margin-bottom: 20px; }
+        .logo-placeholder { border: 2px dashed #bdc3c7; padding: 15px; border-radius: 6px; cursor: pointer; color: #7f8c8d; max-width: 220px; margin: 0 auto; font-size: 13px; background: #fafafa; }
+        .app-logo { display: none; max-width: 140px; margin: 0 auto; cursor: pointer; }
+        .btn-ganti-logo { display: none; font-size: 11px; color: #e67e22; text-decoration: underline; cursor: pointer; margin-top: 5px; }
+
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; }
+        .form-group input[type="text"] { width: 100%; padding: 12px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; }
+        
+        .pesanan-header { display: flex; font-weight: bold; padding-bottom: 10px; border-bottom: 2px solid #ddd; margin-bottom: 10px; font-size: 14px; }
+        .pesanan-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+        .pesanan-row input[type="text"] { flex: 2; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; }
+        .pesanan-row input[type="number"] { width: 70px; padding: 10px; text-align: center; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; }
+        
+        .btn-tambah { background-color: #27ae60; color: white; padding: 10px 14px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-bottom: 20px; width: 100%; }
+        .btn-hapus { background-color: #c0392b; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-simpan { width: 100%; padding: 14px; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; color: white; }
+        .bg-kasir { background-color: #2980b9; }
+        .bg-pelanggan { background-color: #e67e22; }
+        
+        /* Tampilan Rekap Kasir */
+        .rekap-card { background: #fff; padding: 15px; margin-bottom: 15px; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 6px solid #f39c12; }
+        .status-dimasak { border-left-color: #3498db; }
+        .status-selesai { border-left-color: #2ecc71; }
+        .rekap-top { display: flex; justify-content: space-between; align-items: center; }
+        .rekap-nama { font-weight: bold; font-size: 16px; }
+        .rekap-waktu { font-size: 12px; color: #95a5a6; margin-bottom: 10px; }
+        .rekap-item { font-family: monospace; font-size: 14px; margin-bottom: 4px; }
+        .select-status { padding: 6px; border-radius: 4px; font-weight: bold; border: 1px solid #bdc3c7; }
+        .rekap-aksi { margin-top: 15px; display: flex; gap: 10px; border-top: 1px solid #eee; padding-top: 10px; }
+        .btn-print-item { background-color: #7f8c8d; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-reset-rekap { background-color: #e74c3c; color: white; padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; float: right; font-weight: bold; }
+
+        #areaCetak { display: none; }
+
+        /* --- ATURAN CETAK STRUK KASIR (THERMAL 58MM) --- */
+        @media print {
+            body > * { display: none !important; } 
+            #areaCetak { 
+                display: block !important; 
+                width: 58mm; 
+                padding: 2mm 3mm 4mm 3mm; 
+                box-sizing: border-box; 
+                font-family: 'Courier New', Courier, monospace; 
+                font-size: 11px; 
+                line-height: 1.3; 
+                color: #000;
+            }
+            @page { size: 58mm auto; margin: 0; }
+            .struk-logo { display: block; max-width: 22mm; margin: 0 auto 6px auto; }
+            .struk-title { text-align: center; font-weight: bold; font-size: 12px; margin-bottom: 5px; text-transform: uppercase; border-bottom: 1px dashed #000; padding-bottom: 3px; }
+            .struk-meta { font-size: 10px; margin-bottom: 2px; }
+            .struk-divider { border-top: 1px dashed #000; margin: 5px 0; }
+            .struk-items { font-size: 11px; font-weight: bold; }
+            .struk-footer { text-align: center; font-size: 9px; margin-top: 8px; padding-top: 4px; border-top: 1px dashed #000; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="viewKasir" style="display: none;">
+    <div class="container">
+        <div class="logo-wrapper">
+            <input type="file" id="inputFileLogo" accept="image/*" style="display: none;" onchange="prosesKunciLogo(this)">
+            <div id="kotakUpload" class="logo-placeholder" onclick="bukaPilihFile()">
+                📂 Klik di sini untuk mengunci<br><b>Logo Best</b> Anda
+            </div>
+            <img id="gambarLogoApp" src="" alt="Logo" class="app-logo" onclick="bukaPilihFile()" title="Ganti Logo">
+            <div id="teksGantiLogo" class="btn-ganti-logo" onclick="bukaPilihFile()">Ganti Logo</div>
+        </div>
+
+        <h2 id="judulForm">Catat Pesanan Manual</h2>
+        
+        <div class="form-group">
+            <label for="namaPemesan">Nama Pemesan:</label>
+            <input type="text" id="namaPemesan" placeholder="Contoh: Jupri">
+        </div>
+        
+        <div class="pesanan-header">
+            <div style="flex: 2;">Menu Makanan / Minuman</div>
+            <div style="width: 70px; text-align: center;">Jumlah</div>
+            <div></div>
+        </div>
+        
+        <div id="daftarPesanan">
+            <div class="pesanan-row">
+                <input type="text" class="input-menu" placeholder="Nama menu...">
+                <input type="number" class="input-qty" value="1" min="1">
+                <button class="btn-hapus" onclick="hapusBaris(this)">X</button>
+            </div>
+        </div>
+        
+        <button class="btn-tambah" onclick="tambahBaris('daftarPesanan')">+ Tambah Item</button>
+        <button class="btn-simpan bg-kasir" id="btnSimpanUtama" onclick="simpanPesananManual()">Simpan Ke Rekapitulasi</button>
+    </div>
+
+    <div class="container">
+        <button class="btn-reset-rekap" onclick="hapusSemuaRekap()">Hapus Semua Rekap</button>
+        <h3>Rekapitulasi Antrean Pesanan</h3>
+        <hr style="border: 0; border-top: 1px solid #ddd; margin: 15px 0;">
+        <div id="areaRekap"></div>
+    </div>
+</div>
+
+
+<div id="viewPelanggan" style="display: none;">
+    <div class="container">
+        <div style="text-align: center; margin-bottom: 15px;">
+            <img id="logoPelanggan" src="" alt="Logo" style="max-width: 100px; display: none;">
+        </div>
+        <h2>Sistem Order Mandiri</h2>
+        
+        <div class="form-group">
+            <label for="namaPelanggan">Nama Anda:</label>
+            <input type="text" id="namaPelanggan" placeholder="Ketik nama lengkap / panggilan Anda...">
+        </div>
+
+        <div class="pesanan-header">
+            <div style="flex: 2;">Ketik Menu Pilihan</div>
+            <div style="width: 70px; text-align: center;">Porsi</div>
+            <div></div>
+        </div>
+
+        <div id="daftarPesananPelanggan">
+            <div class="pesanan-row">
+                <input type="text" class="input-menu-pelanggan" placeholder="Contoh: Mie Iblis Lvl 3">
+                <input type="number" class="input-qty-pelanggan" value="1" min="1">
+                <button class="btn-hapus" onclick="hapusBaris(this)">X</button>
+            </div>
+        </div>
+
+        <button class="btn-tambah" onclick="tambahBaris('daftarPesananPelanggan')">+ Tambah Menu Lain</button>
+        <button class="btn-simpan bg-pelanggan" onclick="kirimPesananViaWhatsApp()">🚀 Kirim Pesanan ke Kasir</button>
+    </div>
+</div>
+
+<div id="areaCetak"></div>
+
+
+<script>
+    // !!! PENGATURAN NOMOR WHATSAPP KASIR !!!
+    // Ganti dengan nomor WA penerima pesanan di warung Anda (Wajib gunakan kode 62 di depan)
+    const NOMOR_WHATSAPP_KASIR = "6281234567890"; 
+
+    let idPesananSedangDiedit = null;
+
+    window.onload = function() {
+        muatLogoSistem();
+        
+        // SISTEM DETEKSI MODE BERDASARKAN LINK URL (?mode=pelanggan)
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('mode') === 'pelanggan') {
+            document.getElementById('viewKasir').style.display = 'none';
+            document.getElementById('viewPelanggan').style.display = 'block';
+            
+            const logoTersimpan = localStorage.getItem('bestLogoCache');
+            if (logoTersimpan) {
+                document.getElementById('logoPelanggan').src = logoTersimpan;
+                document.getElementById('logoPelanggan').style.display = 'inline-block';
+            }
+        } else {
+            document.getElementById('viewPelanggan').style.display = 'none';
+            document.getElementById('viewKasir').style.display = 'block';
+            tampilkanRekap();
+        }
+    };
+
+    function bukaPilihFile() { document.getElementById('inputFileLogo').click(); }
+    function prosesKunciLogo(input) {
+        const file = input.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const base64Data = e.target.result;
+                localStorage.setItem('bestLogoCache', base64Data);
+                terapkanLogo(base64Data);
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+    function muatLogoSistem() {
+        const logoTersimpan = localStorage.getItem('bestLogoCache');
+        if (logoTersimpan) terapkanLogo(logoTersimpan);
+    }
+    function terapkanLogo(srcData) {
+        document.getElementById('kotakUpload').style.display = 'none';
+        const imgApp = document.getElementById('gambarLogoApp');
+        imgApp.src = srcData;
+        imgApp.style.display = 'block';
+        document.getElementById('teksGantiLogo').style.display = 'block';
+    }
+
+    function tambahBaris(targetContainerId) {
+        const container = document.getElementById(targetContainerId);
+        const row = document.createElement('div');
+        row.className = 'pesanan-row';
+        
+        if(targetContainerId === 'daftarPesanan') {
+            row.innerHTML = `
+                <input type="text" class="input-menu" placeholder="Nama menu...">
+                <input type="number" class="input-qty" value="1" min="1">
+                <button class="btn-hapus" onclick="hapusBaris(this)">X</button>
+            `;
+        } else {
+            row.innerHTML = `
+                <input type="text" class="input-menu-pelanggan" placeholder="Contoh: Mie Iblis Lvl 3">
+                <input type="number" class="input-qty-pelanggan" value="1" min="1">
+                <button class="btn-hapus" onclick="hapusBaris(this)">X</button>
+            `;
+        }
+        container.appendChild(row);
+    }
+
+    function hapusBaris(button) {
+        const row = button.parentNode;
+        const container = row.parentNode;
+        if (container.children.length > 1) {
+            row.remove();
+        } else {
+            alert('Minimal harus mengisi satu item menu!');
+        }
+    }
+
+    function simpanPesananManual() {
+        const nama = document.getElementById('namaPemesan').value.trim();
+        if (!nama) { alert('Mohon isi nama pemesan!'); return; }
+        
+        const rows = document.querySelectorAll('#daftarPesanan .pesanan-row');
+        let items = [];
+        rows.forEach(row => {
+            const menu = row.querySelector('.input-menu').value.trim();
+            const qty = row.querySelector('.input-qty').value;
+            if (menu !== '') items.push({ menu: menu, qty: qty });
+        });
+        
+        if (items.length === 0) { alert('Isi menu minimal satu item!'); return; }
+        
+        let totalRekap = JSON.parse(localStorage.getItem('rekapPesanan')) || [];
+        
+        if (idPesananSedangDiedit !== null) {
+            totalRekap = totalRekap.map(p => {
+                if (p.id === idPesananSedangDiedit) { p.pemesan = nama; p.listMenu = items; }
+                return p;
+            });
+            idPesananSedangDiedit = null;
+            document.getElementById('btnSimpanUtama').innerText = 'Simpan Ke Rekapitulasi';
+            document.getElementById('judulForm').innerText = 'Catat Pesanan Manual';
+        } else {
+            totalRekap.unshift({
+                id: Date.now(),
+                pemesan: nama,
+                waktu: new Date().toLocaleString('id-ID', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' }),
+                listMenu: items,
+                status: 'Diterima'
+            });
+        }
+        
+        localStorage.setItem('rekapPesanan', JSON.stringify(totalRekap));
+        document.getElementById('namaPemesan').value = '';
+        document.getElementById('daftarPesanan').innerHTML = `
+            <div class="pesanan-row">
+                <input type="text" class="input-menu" placeholder="Nama menu...">
+                <input type="number" class="input-qty" value="1" min="1">
+                <button class="btn-hapus" onclick="hapusBaris(this)">X</button>
+            </div>
+        `;
+        tampilkanRekap();
+    }
+
+    function tampilkanRekap() {
+        const area = document.getElementById('areaRekap');
+        let rekap = JSON.parse(localStorage.getItem('rekapPesanan')) || [];
+        if (rekap.length === 0) { area.innerHTML = '<p style="color:#7f8c8d; text-align:center;">Belum ada antrean pesanan.</p>'; return; }
+        
+        let html = '';
+        rekap.forEach(p => {
+            let classStat = p.status === 'Sedang Dimasak' ? 'status-dimasak' : (p.status === 'Selesai' ? 'status-selesai' : '');
+            html += `<div class="rekap-card ${classStat}">
+                <div class="rekap-top">
+                    <div class="rekap-nama">${p.pemesan}</div>
+                    <select class="select-status" onchange="ubahStatus(${p.id}, this.value)">
+                        <option value="Diterima" ${p.status==='Diterima'?'selected':''}>⏳ Diterima</option>
+                        <option value="Sedang Dimasak" ${p.status==='Sedang Dimasak'?'selected':''}>🔥 Dimasak</option>
+                        <option value="Selesai" ${p.status==='Selesai'?'selected':''}>✅ Selesai</option>
+                    </select>
+                </div>
+                <div class="rekap-waktu">Order: ${p.waktu}</div>`;
+            p.listMenu.forEach(m => { html += `<div class="rekap-item">• ${m.menu} (${m.qty}x)</div>`; });
+            html += `<div class="rekap-aksi">
+                <button style="background-color:#e67e22; color:white; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;" onclick="pemicuEdit(${p.id})">✏️ Edit</button>
+                <button class="btn-print-item" onclick="cetakStrukKasir(${p.id})">🖨️ Print Struk</button>
+            </div></div>`;
+        });
+        area.innerHTML = html;
+    }
+
+    function ubahStatus(id, stat) {
+        let rekap = JSON.parse(localStorage.getItem('rekapPesanan')) || [];
+        rekap = rekap.map(p => { if(p.id === id) p.status = stat; return p; });
+        localStorage.setItem('rekapPesanan', JSON.stringify(rekap));
+        tampilkanRekap();
+    }
+
+    function pemicuEdit(id) {
+        let rekap = JSON.parse(localStorage.getItem('rekapPesanan')) || [];
+        let p = rekap.find(item => item.id === id);
+        if(!p) return;
+        idPesananSedangDiedit = id;
+        document.getElementById('namaPemesan').value = p.pemesan;
+        const container = document.getElementById('daftarPesanan');
+        container.innerHTML = '';
+        p.listMenu.forEach(m => {
+            const row = document.createElement('div');
+            row.className = 'pesanan-row';
+            row.innerHTML = `<input type="text" class="input-menu" value="${m.menu}"><input type="number" class="input-qty" value="${m.qty}"><button class="btn-hapus" onclick="hapusBaris(this)">X</button>`;
+            container.appendChild(row);
+        });
+        document.getElementById('btnSimpanUtama').innerText = 'Simpan Perubahan';
+        document.getElementById('judulForm').innerText = '✏️ Edit Mode';
+        window.scrollTo({top:0, behavior:'smooth'});
+    }
+
+    function cetakStrukKasir(id) {
+        let rekap = JSON.parse(localStorage.getItem('rekapPesanan')) || [];
+        let p = rekap.find(item => item.id === id);
+        if(!p) return;
+        
+        const cacheLogo = localStorage.getItem('bestLogoCache');
+        let imgTag = cacheLogo ? `<img src="${cacheLogo}" class="struk-logo">` : '';
+        
+        let htmlStruk = `${imgTag}
+            <div class="struk-title">PESANAN MASUK</div>
+            <div class="struk-meta">Pelanggan: ${p.pemesan}</div>
+            <div class="struk-meta">Waktu    : ${p.waktu}</div>
+            <div class="struk-divider"></div>
+            <div class="struk-items">`;
+        
+        p.listMenu.forEach(m => {
+            htmlStruk += `<div style="display:flex; justify-content:space-between;"><span>- ${m.menu}</span><span>x${m.qty}</span></div>`;
+        });
+        
+        htmlStruk += `</div><div class="struk-footer">Status: ${p.status}<br>* DAPUR & KASIR CHECK *</div>`;
+        document.getElementById('areaCetak').innerHTML = htmlStruk;
+        window.print();
+    }
+
+    function hapusSemuaRekap() { if(confirm('Hapus seluruh rekapan?')) { localStorage.removeItem('rekapPesanan'); tampilkanRekap(); } }
+
+    // ==========================================
+    // LOGIC KIRIM DATA PELANGGAN VIA WHATSAPP 
+    // ==========================================
+    function kirimPesananViaWhatsApp() {
+        const namaPelanggan = document.getElementById('namaPelanggan').value.trim();
+        if (!namaPelanggan) { alert('Mohon masukkan nama Anda terlebih dahulu!'); return; }
+        
+        const rows = document.querySelectorAll('#daftarPesananPelanggan .pesanan-row');
+        let teksMenu = '';
+        let valid = false;
+
+        rows.forEach(row => {
+            const menuInput = row.querySelector('.input-menu-pelanggan');
+            const qtyInput = row.querySelector('.input-qty-pelanggan');
+            
+            if(menuInput && qtyInput) {
+                const namaMenu = menuInput.value.trim();
+                const jumlahMenu = qtyInput.value;
+                if(namaMenu !== '') {
+                    teksMenu += `• ${namaMenu} (${jumlahMenu}x)\n`;
+                    valid = true;
+                }
+            }
+        });
+
+        if (!valid) { alert('Mohon isi minimal satu menu yang ingin dipesan!'); return; }
+
+        // FORMAT TEKS WHATSAPP BERSIH (TANPA NOMOR MEJA)
+        let pesanWhatsApp = `*🔥 PESANAN MANDIRI BARU 🔥*\n`;
+        pesanWhatsApp += `---------------------------\n`;
+        pesanWhatsApp += `*👤 NAMA    :* ${namaPelanggan}\n`;
+        pesanWhatsApp += `---------------------------\n`;
+        pesanWhatsApp += `*DAFTAR ORDERAN:*\n${teksMenu}\n`;
+        pesanWhatsApp += `---------------------------\n`;
+        pesanWhatsApp += `_Mohon segera cetak struk dapur, terima kasih!_`;
+
+        const urlKirim = `https://api.whatsapp.com/send?phone=${NOMOR_WHATSAPP_KASIR}&text=${encodeURIComponent(pesanWhatsApp)}`;
+        window.open(urlKirim, '_blank');
+    }
+</script>
+
+</body>
+</html>

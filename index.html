@@ -27,7 +27,6 @@
         .pesanan-header { display: flex; font-weight: bold; padding-bottom: 10px; border-bottom: 2px solid #ddd; margin-bottom: 10px; font-size: 14px; gap: 10px; }
         .pesanan-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
         
-        /* Sinkronisasi ukuran agar semua kolom rapi dan sejajar */
         .pesanan-row select, .pesanan-row input[type="text"] { flex: 2; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; height: 42px; background: white; box-sizing: border-box; }
         .pesanan-row input[type="number"] { width: 65px; padding: 10px; text-align: center; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; height: 42px; box-sizing: border-box; }
         
@@ -45,7 +44,7 @@
         .rekap-waktu { font-size: 12px; color: #95a5a6; margin-bottom: 10px; }
         .rekap-item { font-family: monospace; font-size: 14px; margin-bottom: 4px; }
         .select-status { padding: 6px; border-radius: 4px; font-weight: bold; border: 1px solid #bdc3c7; }
-        .rekap-aksi { margin-top: 15px; display: flex; gap: 10px; border-top: 1px solid #eee; padding-top: 10px; }
+        .rekap-aksi { margin-top: 15px; display: flex; gap: 10px; border-top: 1px solid #eee; padding-top: 10px; flex-wrap: wrap; }
         .btn-print-item { background-color: #7f8c8d; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .btn-reset-rekap { background-color: #e74c3c; color: white; padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; float: right; font-weight: bold; }
 
@@ -81,11 +80,12 @@
     appId: "1:80214416593:web:41ad9e1270a1d399e4f9f0",
     measurementId: "G-HQLPT2HGP9"
   };
-  // ========================================================================
 
-  // Menyalakan Koneksi Database
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
+
+  // Waktu buka halaman (digunakan agar pesanan lama tidak memicu suara saat baru refresh)
+  let batasWaktuNotifikasi = Date.now();
 </script>
 
 <!-- ===================================== -->
@@ -123,7 +123,7 @@
         
         <div class="pesanan-header">
             <div style="flex: 2;">Menu Utama</div>
-            <div style="flex: 2;">Varian / Request (Misal: Es, Manis)</div>
+            <div style="flex: 2;">Varian / Catatan <span style="color:red;">*Wajib</span></div>
             <div style="width: 65px; text-align: center;">Jumlah</div>
             <div style="width: 40px;"></div>
         </div>
@@ -159,7 +159,7 @@
 
         <div class="pesanan-header">
             <div style="flex: 2;">Pilih Menu</div>
-            <div style="flex: 2;">Varian / Request</div>
+            <div style="flex: 2;">Varian / Request <span style="color:red;">*Wajib</span></div>
             <div style="width: 65px; text-align: center;">Porsi</div>
             <div style="width: 40px;"></div>
         </div>
@@ -238,6 +238,31 @@
         }
     };
 
+    // --- FITUR NOTIFIKASI SUARA (Ting-Tung Elektronik) ---
+    function bunyikanNotifikasiMasuk() {
+        try {
+            let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Nada Pertama (Ting)
+            let osc1 = audioCtx.createOscillator();
+            let gain1 = audioCtx.createGain();
+            osc1.connect(gain1); gain1.connect(audioCtx.destination);
+            osc1.type = 'sine'; osc1.frequency.setValueAtTime(587.33, audioCtx.currentTime); // Nada D5
+            gain1.gain.setValueAtTime(0.12, audioCtx.currentTime);
+            osc1.start(); osc1.stop(audioCtx.currentTime + 0.15);
+            
+            // Nada Kedua (Tung)
+            setTimeout(() => {
+                let osc2 = audioCtx.createOscillator();
+                let gain2 = audioCtx.createGain();
+                osc2.connect(gain2); gain2.connect(audioCtx.destination);
+                osc2.type = 'sine'; osc2.frequency.setValueAtTime(880, audioCtx.currentTime); // Nada A5
+                gain2.gain.setValueAtTime(0.12, audioCtx.currentTime);
+                osc2.start(); osc2.stop(audioCtx.currentTime + 0.3);
+            }, 140);
+        } catch (e) { console.log("Notifikasi suara tertahan keamanan browser:", e); }
+    }
+
     // --- LOGIK MANAJEMEN MENU DI KASIR ---
     function tambahMenuKeCloud() {
         const namaMenu = document.getElementById('inputMenuBaru').value.trim();
@@ -303,7 +328,7 @@
 
         row.innerHTML = `
             <select class="${kelasMenu}">${opsiMenuHTML}</select>
-            <input type="text" class="${kelasVarian}" placeholder="Contoh: Manis, Es, Pahit">
+            <input type="text" class="${kelasVarian}" placeholder="Misal: Pahit, Manis, Es, Panas">
             <input type="number" class="${kelasQty}" value="1" min="1">
             <button class="btn-hapus" onclick="hapusBaris(this)">X</button>
         `;
@@ -323,13 +348,20 @@
         
         const rows = document.querySelectorAll('#daftarPesanan .pesanan-row');
         let items = [];
+        let adaVarianKosong = false;
+
         rows.forEach(row => {
             const menu = row.querySelector('.input-menu').value;
             const varian = row.querySelector('.input-varian').value.trim();
             const qty = row.querySelector('.input-qty').value;
-            if (menu !== '') items.push({ menu: menu, varian: varian, qty: qty });
+            if (menu !== '') {
+                if (varian === '') { adaVarianKosong = true; }
+                items.push({ menu: menu, varian: varian, qty: qty });
+            }
         });
+
         if (items.length === 0) { alert('Mohon pilih menu minimal satu item!'); return; }
+        if (adaVarianKosong) { alert('⚠️ Gagal Menyimpan! Kolom Varian / Catatan tidak boleh kosong. Isikan selera rasa atau ketik "Original" jika tidak ada request.'); return; }
         
         if (idPesananSedangDiedit !== null) {
             db.ref('orders/' + idPesananSedangDiedit).update({ pemesan: nama, listMenu: items });
@@ -356,13 +388,20 @@
         
         const rows = document.querySelectorAll('#daftarPesananPelanggan .pesanan-row');
         let items = [];
+        let adaVarianKosong = false;
+
         rows.forEach(row => {
             const menu = row.querySelector('.input-menu-pelanggan').value;
             const varian = row.querySelector('.input-varian-pelanggan').value.trim();
             const qty = row.querySelector('.input-qty-pelanggan').value;
-            if (menu !== '') items.push({ menu: menu, varian: varian, qty: qty });
+            if (menu !== '') {
+                if (varian === '') { adaVarianKosong = true; }
+                items.push({ menu: menu, varian: varian, qty: qty });
+            }
         });
+
         if (items.length === 0) { alert('Mohon tentukan menu pilihan Anda!'); return; }
+        if (adaVarianKosong) { alert('⚠️ Gagal Mengirim! Pilihan Varian / Catatan wajib diisi. Silakan tulis keinginan Anda (Contoh: Es / Panas / Manis / Original).'); return; }
 
         const btn = document.getElementById('btnKirimPelanggan');
         btn.disabled = true; btn.innerText = "Mengirim...";
@@ -392,7 +431,23 @@
             localOrdersCache = [];
             
             let rekapArr = [];
-            snapshot.forEach(child => { rekapArr.push(child.val()); });
+            let pemicuSuaraSuaraBaru = false;
+
+            snapshot.forEach(child => { 
+                let orderData = child.val();
+                rekapArr.push(orderData); 
+                
+                // Cek jika ada pesanan baru yang masuk setelah halaman ini dibuka
+                if (orderData.timestamp > batasWaktuNotifikasi) {
+                    pemicuSuaraSuaraBaru = true;
+                    batasWaktuNotifikasi = orderData.timestamp; // Perbarui batas waktu teratas
+                }
+            });
+            
+            if (pemicuSuaraSuaraBaru) {
+                bunyikanNotifikasiMasuk();
+            }
+
             rekapArr.reverse(); 
             localOrdersCache = rekapArr;
 
@@ -418,6 +473,7 @@
                 html += `<div class="rekap-aksi">
                     <button style="background-color:#e67e22; color:white; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;" onclick="pemicuEdit('${p.id}')">✏️ Edit</button>
                     <button class="btn-print-item" onclick="cetakStrukKasir('${p.id}')">🖨️ Print Struk</button>
+                    <button style="background-color:#e74c3c; color:white; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;" onclick="hapusPesananTunggal('${p.id}')">🗑️ Hapus</button>
                 </div></div>`;
             });
             area.innerHTML = html;
@@ -425,6 +481,13 @@
     }
 
     function ubahStatus(id, stat) { db.ref('orders/' + id).update({ status: stat }); }
+
+    // Menghapus satu kartu pesanan tertentu dari rekap antrean kasir
+    function hapusPesananTunggal(id) {
+        if (confirm('Apakah Anda yakin ingin menghapus permanen pesanan ini dari antrean?')) {
+            db.ref('orders/' + id).remove();
+        }
+    }
 
     // Membuka mode edit pesanan manual di kasir
     function pemicuEdit(id) {
@@ -451,7 +514,7 @@
 
             row.innerHTML = `
                 <select class="input-menu">${opsiMenuHTML}</select>
-                <input type="text" class="input-varian" value="${m.varian || ''}" placeholder="Contoh: Manis, Es, Pahit">
+                <input type="text" class="input-varian" value="${m.varian || ''}" placeholder="Misal: Pahit, Manis, Es, Panas">
                 <input type="number" class="input-qty" value="${m.qty}">
                 <button class="btn-hapus" onclick="hapusBaris(this)">X</button>
             `;

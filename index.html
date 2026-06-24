@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Manajemen & Order QR Kasir Otomatis</title>
+    <title>Sistem Order QR - DenyNov</title>
+    
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
     <style>
-        /* --- GAYA TAMPILAN --- */
+        /* --- GAYA TAMPILAN (CSS) --- */
         body { font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px; color: #333; margin: 0; }
         .container { max-width: 650px; background: white; margin: 0 auto 30px auto; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); box-sizing: border-box; }
         h2, h3 { color: #2c3e50; margin-bottom: 20px; text-align: center; }
@@ -46,6 +48,7 @@
 
         #areaCetak { display: none; }
 
+        /* FORMAT STRUK KASIR THERMAL 58MM */
         @media print {
             body > * { display: none !important; } 
             #areaCetak { display: block !important; width: 58mm; padding: 2mm 3mm 4mm 3mm; box-sizing: border-box; font-family: 'Courier New', Courier, monospace; font-size: 11px; line-height: 1.3; color: #000; }
@@ -61,28 +64,25 @@
 </head>
 <body>
 
-<script type="module">
-  // Import the functions you need from the SDKs you need
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
-  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-analytics.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
-
-  // Your web app's Firebase configuration
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+<script>
+  // ========================================================================
+  // 🔐 DATA FIREBASE UTARA ANDA (SUDAH AKTIF & TERHUBUNG) 🔐
+  // ========================================================================
   const firebaseConfig = {
     apiKey: "AIzaSyCzcmIlaf9hi07OTP8Iq1zVeNlqvt0ATwk",
     authDomain: "menu-pesanan.firebaseapp.com",
+    databaseURL: "https://menu-pesanan-default-rtdb.firebaseio.com", 
     projectId: "menu-pesanan",
     storageBucket: "menu-pesanan.firebasestorage.app",
     messagingSenderId: "80214416593",
     appId: "1:80214416593:web:41ad9e1270a1d399e4f9f0",
     measurementId: "G-HQLPT2HGP9"
   };
+  // ========================================================================
 
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-  const analytics = getAnalytics(app);
+  // Menyalakan Koneksi Database
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
 </script>
 
 <div id="viewKasir" style="display: none;">
@@ -156,12 +156,13 @@
 
 <div id="areaCetak"></div>
 
+
 <script>
     let idPesananSedangDiedit = null;
     let localOrdersCache = [];
 
     window.onload = function() {
-        // Sinkronisasi LOGO via Cloud Firebase agar terupdate di HP Pelanggan juga
+        // Otomatis sinkronisasi logo warung via cloud
         db.ref('settings/logo').on('value', function(snapshot) {
             const logoSrc = snapshot.val();
             if (logoSrc) {
@@ -174,6 +175,7 @@
             }
         });
         
+        // Cek mode link (?mode=pelanggan)
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('mode') === 'pelanggan') {
             document.getElementById('viewKasir').style.display = 'none';
@@ -181,7 +183,6 @@
         } else {
             document.getElementById('viewPelanggan').style.display = 'none';
             document.getElementById('viewKasir').style.display = 'block';
-            // DENGARKAN DATABASE SECARA LIVE DI SISI KASIR
             dengarkanPesananMasuk();
         }
     };
@@ -196,6 +197,7 @@
         }
     }
 
+    // Fungsi membuat baris form baru
     function tambahBaris(targetContainerId) {
         const container = document.getElementById(targetContainerId);
         const row = document.createElement('div');
@@ -212,7 +214,7 @@
         else alert('Minimal harus mengisi satu item menu!');
     }
 
-    // SIMPAN MANUAL DARI SISI KASIR
+    // Simpan data dari kasir secara manual
     function simpanPesananManual() {
         const nama = document.getElementById('namaPemesan').value.trim();
         if (!nama) { alert('Mohon isi nama pemesan!'); return; }
@@ -243,7 +245,7 @@
         document.getElementById('daftarPesanan').innerHTML = `<div class="pesanan-row"><input type="text" class="input-menu" placeholder="Nama menu..."><input type="number" class="input-qty" value="1" min="1"><button class="btn-hapus" onclick="hapusBaris(this)">X</button></div>`;
     }
 
-    // PROSES KIRIM DARI HP PELANGGAN LANGSUNG MASUK DATABASE
+    // Pengiriman pesanan dari HP Pelanggan langsung ke Cloud Firebase
     function kirimPesananFirebase() {
         const nama = document.getElementById('namaPelanggan').value.trim();
         if (!nama) { alert('Mohon masukkan nama Anda terlebih dahulu!'); return; }
@@ -270,13 +272,14 @@
             btn.disabled = false; btn.innerText = "🚀 Kirim Pesanan Langsung ke Kasir";
             document.getElementById('namaPelanggan').value = '';
             document.getElementById('daftarPesananPelanggan').innerHTML = `<div class="pesanan-row"><input type="text" class="input-menu-pelanggan" placeholder="Contoh: Mie Iblis Lvl 3"><input type="number" class="input-qty-pelanggan" value="1" min="1"><button class="btn-hapus" onclick="hapusBaris(this)">X</button></div>`;
-        }).catch(() => {
-            alert('Gagal mengirim pesanan, cek koneksi internet Anda.');
-            btn.disabled = false;
+        }).catch((err) => {
+            alert('Gagal mengirim pesanan. Silakan periksa kembali pengaturan Firebase Rules Anda.');
+            console.error(err);
+            btn.disabled = false; btn.innerText = "🚀 Kirim Pesanan Langsung ke Kasir";
         });
     }
 
-    // SINKRONISASI UPDATE REAL-TIME DI LAYAR KASIR
+    // Pemantauan real-time antrean pesanan di sisi kasir
     function dengarkanPesananMasuk() {
         db.ref('orders').orderByChild('timestamp').on('value', function(snapshot) {
             const area = document.getElementById('areaRekap');
@@ -285,7 +288,7 @@
             
             let rekapArr = [];
             snapshot.forEach(child => { rekapArr.push(child.val()); });
-            rekapArr.reverse(); // Urutan terbaru di atas
+            rekapArr.reverse(); 
             localOrdersCache = rekapArr;
 
             if (rekapArr.length === 0) { area.innerHTML = '<p style="color:#7f8c8d; text-align:center;">Belum ada antrean pesanan.</p>'; return; }
@@ -347,7 +350,7 @@
             <div class="struk-divider"></div>
             <div class="struk-items">`;
         p.listMenu.forEach(m => { htmlStruk += `<div style="display:flex; justify-content:space-between;"><span>- ${m.menu}</span><span>x${m.qty}</span></div>`; });
-        htmlStruk += `</div><div class="struk-footer">Status: ${p.status}<br>* SELESAI & AMBIL *</div>`;
+        htmlStruk += `</div><div class="struk-footer">Status: ${p.status}<br>* SILAKAN AMBIL *</div>`;
         document.getElementById('areaCetak').innerHTML = htmlStruk;
         window.print();
     }

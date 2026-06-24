@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Order QR - DenyNov</title>
     
-    <!-- LINK SOURCE FIREBASE (Menggunakan Jalur Kompatibilitas agar Sistem Lancar) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 
@@ -26,11 +25,13 @@
         
         .pesanan-header { display: flex; font-weight: bold; padding-bottom: 10px; border-bottom: 2px solid #ddd; margin-bottom: 10px; font-size: 14px; }
         .pesanan-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
-        .pesanan-row input[type="text"] { flex: 2; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; }
-        .pesanan-row input[type="number"] { width: 70px; padding: 10px; text-align: center; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; }
+        
+        /* Modifikasi CSS agar input text & select dropwdown berukuran seragam */
+        .pesanan-row select, .pesanan-row input[type="text"] { flex: 2; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; height: 42px; background: white; }
+        .pesanan-row input[type="number"] { width: 70px; padding: 10px; text-align: center; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; height: 20px; }
         
         .btn-tambah { background-color: #27ae60; color: white; padding: 10px 14px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-bottom: 20px; width: 100%; }
-        .btn-hapus { background-color: #c0392b; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-hapus { background-color: #c0392b; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; height: 42px; }
         .btn-simpan { width: 100%; padding: 14px; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; color: white; }
         .bg-kasir { background-color: #2980b9; }
         .bg-pelanggan { background-color: #e67e22; }
@@ -86,17 +87,25 @@
   const db = firebase.database();
 </script>
 
-<!-- ===================================== -->
-<!-- TAMPILAN SISI LAPTOP KASIR UTAMA      -->
-<!-- ===================================== -->
 <div id="viewKasir" style="display: none;">
+    
+    <div class="container" style="border-top: 6px solid #9b59b6;">
+        <h3>⚙️ Kelola Pilihan Menu Kuliner</h3>
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <input type="text" id="inputMenuBaru" placeholder="Ketik nama menu baru... (Contoh: Bakso Mercon)" style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px;">
+            <button onclick="tambahMenuKeCloud()" style="background-color: #9b59b6; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">+ Tambah Menu</button>
+        </div>
+        <div id="daftarMenuKasir" style="max-height: 180px; overflow-y: auto; border: 1px solid #eee; padding: 10px; border-radius: 6px; background: #fafafa;">
+            </div>
+    </div>
+
     <div class="container">
         <div class="logo-wrapper">
             <input type="file" id="inputFileLogo" accept="image/*" style="display: none;" onchange="prosesKunciLogo(this)">
             <div id="kotakUpload" class="logo-placeholder" onclick="bukaPilihFile()">
                 📂 Klik di sini untuk mengunci<br><b>Logo Best</b> Anda
             </div>
-            <img id="gambarLogoApp" src="" alt="Logo" class="app-logo" onclick="biahPilihFile()" title="Ganti Logo">
+            <img id="gambarLogoApp" src="" alt="Logo" class="app-logo" onclick="bukaPilihFile()" title="Ganti Logo">
             <div id="teksGantiLogo" class="btn-ganti-logo" onclick="bukaPilihFile()">Ganti Logo</div>
         </div>
 
@@ -111,13 +120,9 @@
             <div style="width: 70px; text-align: center;">Jumlah</div>
             <div></div>
         </div>
-        <div id="daftarPesanan">
-            <div class="pesanan-row">
-                <input type="text" class="input-menu" placeholder="Nama menu...">
-                <input type="number" class="input-qty" value="1" min="1">
-                <button class="btn-hapus" onclick="hapusBaris(this)">X</button>
-            </div>
-        </div>
+        
+        <div id="daftarPesanan"></div>
+        
         <button class="btn-tambah" onclick="tambahBaris('daftarPesanan')">+ Tambah Item</button>
         <button class="btn-simpan bg-kasir" id="btnSimpanUtama" onclick="simpanPesananManual()">Simpan Ke Rekapitulasi</button>
     </div>
@@ -130,9 +135,6 @@
     </div>
 </div>
 
-<!-- ===================================== -->
-<!-- TAMPILAN SISI SCAN HP PELANGGAN       -->
-<!-- ===================================== -->
 <div id="viewPelanggan" style="display: none;">
     <div class="container">
         <div style="text-align: center; margin-bottom: 15px;">
@@ -145,33 +147,28 @@
         </div>
 
         <div class="pesanan-header">
-            <div style="flex: 2;">Ketik Menu Pilihan</div>
+            <div style="flex: 2;">Pilih Menu Kuliner</div>
             <div style="width: 70px; text-align: center;">Porsi</div>
             <div></div>
         </div>
-        <div id="daftarPesananPelanggan">
-            <div class="pesanan-row">
-                <input type="text" class="input-menu-pelanggan" placeholder="Contoh: Mie Iblis Lvl 3">
-                <input type="number" class="input-qty-pelanggan" value="1" min="1">
-                <button class="btn-hapus" onclick="hapusBaris(this)">X</button>
-            </div>
-        </div>
+        
+        <div id="daftarPesananPelanggan"></div>
+        
         <button class="btn-tambah" onclick="tambahBaris('daftarPesananPelanggan')">+ Tambah Menu Lain</button>
         <button class="btn-simpan bg-pelanggan" id="btnKirimPelanggan" onclick="kirimPesananFirebase()">🚀 Kirim Pesanan Langsung ke Kasir</button>
     </div>
 </div>
 
-<!-- KOTAK TERSEMBUNYI UNTUK PRINT -->
 <div id="areaCetak"></div>
 
 
-<!-- LOGIKAL PEMROGRAMAN JAVASCRIPT -->
 <script>
     let idPesananSedangDiedit = null;
     let localOrdersCache = [];
+    let daftarMenuGlobal = []; // Menyimpan data menu aktif dari database cloud
 
     window.onload = function() {
-        // Otomatis sinkronisasi logo warung via cloud
+        // 1. Sinkronisasi logo warung via cloud
         db.ref('settings/logo').on('value', function(snapshot) {
             const logoSrc = snapshot.val();
             if (logoSrc) {
@@ -181,6 +178,38 @@
                 document.getElementById('teksGantiLogo').style.display = 'block';
                 document.getElementById('logoPelanggan').src = logoSrc;
                 document.getElementById('logoPelanggan').style.display = 'inline-block';
+            }
+        });
+
+        // 2. Sinkronisasi Data Menu Kuliner dari cloud secara Real-time
+        db.ref('menus').on('value', function(snapshot) {
+            daftarMenuGlobal = [];
+            snapshot.forEach(child => {
+                daftarMenuGlobal.push({ id: child.key, nama: child.val().nama });
+            });
+
+            // Sinkronkan daftar kelola menu di sisi kasir
+            renderManajemenMenuKasir();
+
+            // Memperbarui semua baris pilihan dropdown aktif agar opsinya selalu terbaru
+            const semuaSelects = document.querySelectorAll('.input-menu, .input-menu-pelanggan');
+            semuaSelects.forEach(select => {
+                const nilaiSebelumnya = select.value;
+                select.innerHTML = '<option value="">-- Pilih Menu --</option>';
+                daftarMenuGlobal.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.nama; opt.innerText = m.nama;
+                    if(m.nama === nilaiSebelumnya) opt.selected = true;
+                    select.appendChild(opt);
+                });
+            });
+
+            // Beri 1 baris pembuka otomatis jika form orderan kosong (Awal Aplikasi Dibuka)
+            if(document.getElementById('daftarPesanan').children.length === 0) {
+                tambahBaris('daftarPesanan');
+            }
+            if(document.getElementById('daftarPesananPelanggan').children.length === 0) {
+                tambahBaris('daftarPesananPelanggan');
             }
         });
         
@@ -196,6 +225,45 @@
         }
     };
 
+    // --- LOGIK MANAJEMEN MENU DI KASIR ---
+    function tambahMenuKeCloud() {
+        const namaMenu = document.getElementById('inputMenuBaru').value.trim();
+        if(!namaMenu) { alert('Ketik nama menu terlebih dahulu!'); return; }
+        
+        // Proteksi duplikasi nama menu
+        const cekDuplikat = daftarMenuGlobal.some(m => m.nama.toLowerCase() === namaMenu.toLowerCase());
+        if(cekDuplikat) { alert('Nama menu tersebut sudah terdaftar!'); return; }
+
+        db.ref('menus').push({ nama: namaMenu });
+        document.getElementById('inputMenuBaru').value = '';
+    }
+
+    function hapusMenuDariCloud(idMenu) {
+        if(confirm('Hapus menu ini dari daftar pilihan?')) {
+            db.ref('menus/' + idMenu).remove();
+        }
+    }
+
+    function renderManajemenMenuKasir() {
+        const areaContainer = document.getElementById('daftarMenuKasir');
+        if(!areaContainer) return;
+        areaContainer.innerHTML = '';
+
+        if(daftarMenuGlobal.length === 0) {
+            areaContainer.innerHTML = '<p style="color:#95a5a6; text-align:center; margin:5px 0 0 0; font-size:13px;">Belum ada menu kuliner. Silakan tambah di atas.</p>';
+            return;
+        }
+
+        daftarMenuGlobal.forEach(m => {
+            const itemBox = document.createElement('div');
+            itemBox.style = 'display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:white; margin-bottom:5px; border-radius:4px; border:1px solid #ddd; font-size:14px;';
+            itemBox.innerHTML = `<span><b>${m.nama}</b></span>
+                <button onclick="hapusMenuDariCloud('${m.id}')" style="background:#e74c3c; color:white; border:none; padding:3px 8px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:11px;">Hapus</button>`;
+            areaContainer.appendChild(itemBox);
+        });
+    }
+
+    // --- LOGIK KUNCI LOGO ---
     function bukaPilihFile() { document.getElementById('inputFileLogo').click(); }
     function prosesKunciLogo(input) {
         const file = input.files[0];
@@ -206,14 +274,26 @@
         }
     }
 
-    // Fungsi membuat baris form baru
+    // --- LOGIK BARIS PESANAN DINAMIS (MENGGUNAKAN SELECT DROPDOWN) ---
     function tambahBaris(targetContainerId) {
         const container = document.getElementById(targetContainerId);
         const row = document.createElement('div');
         row.className = 'pesanan-row';
-        row.innerHTML = targetContainerId === 'daftarPesanan' ? 
-            `<input type="text" class="input-menu" placeholder="Nama menu..."><input type="number" class="input-qty" value="1" min="1"><button class="btn-hapus" onclick="hapusBaris(this)">X</button>` :
-            `<input type="text" class="input-menu-pelanggan" placeholder="Contoh: Mie Iblis Lvl 3"><input type="number" class="input-qty-pelanggan" value="1" min="1"><button class="btn-hapus" onclick="hapusBaris(this)">X</button>`;
+        
+        let kelasMenu = targetContainerId === 'daftarPesanan' ? 'input-menu' : 'input-menu-pelanggan';
+        let kelasQty = targetContainerId === 'daftarPesanan' ? 'input-qty' : 'input-qty-pelanggan';
+        
+        // Membaca database menu kuliner untuk dijadikan opsi pilihan dropdown
+        let opsiMenuHTML = '<option value="">-- Pilih Menu --</option>';
+        daftarMenuGlobal.forEach(m => {
+            opsiMenuHTML += `<option value="${m.nama}">${m.nama}</option>`;
+        });
+
+        row.innerHTML = `
+            <select class="${kelasMenu}">${opsiMenuHTML}</select>
+            <input type="number" class="${kelasQty}" value="1" min="1">
+            <button class="btn-hapus" onclick="hapusBaris(this)">X</button>
+        `;
         container.appendChild(row);
     }
 
@@ -231,11 +311,11 @@
         const rows = document.querySelectorAll('#daftarPesanan .pesanan-row');
         let items = [];
         rows.forEach(row => {
-            const menu = row.querySelector('.input-menu').value.trim();
+            const menu = row.querySelector('.input-menu').value;
             const qty = row.querySelector('.input-qty').value;
             if (menu !== '') items.push({ menu: menu, qty: qty });
         });
-        if (items.length === 0) { alert('Isi menu minimal satu item!'); return; }
+        if (items.length === 0) { alert('Mohon pilih menu minimal satu item!'); return; }
         
         if (idPesananSedangDiedit !== null) {
             db.ref('orders/' + idPesananSedangDiedit).update({ pemesan: nama, listMenu: items });
@@ -251,7 +331,8 @@
             });
         }
         document.getElementById('namaPemesan').value = '';
-        document.getElementById('daftarPesanan').innerHTML = `<div class="pesanan-row"><input type="text" class="input-menu" placeholder="Nama menu..."><input type="number" class="input-qty" value="1" min="1"><button class="btn-hapus" onclick="hapusBaris(this)">X</button></div>`;
+        document.getElementById('daftarPesanan').innerHTML = '';
+        tambahBaris('daftarPesanan');
     }
 
     // Pengiriman pesanan dari HP Pelanggan langsung ke Cloud Firebase
@@ -262,11 +343,11 @@
         const rows = document.querySelectorAll('#daftarPesananPelanggan .pesanan-row');
         let items = [];
         rows.forEach(row => {
-            const menu = row.querySelector('.input-menu-pelanggan').value.trim();
+            const menu = row.querySelector('.input-menu-pelanggan').value;
             const qty = row.querySelector('.input-qty-pelanggan').value;
             if (menu !== '') items.push({ menu: menu, qty: qty });
         });
-        if (items.length === 0) { alert('Mohon isi menu pilihan Anda!'); return; }
+        if (items.length === 0) { alert('Mohon tentukan menu pilihan Anda!'); return; }
 
         const btn = document.getElementById('btnKirimPelanggan');
         btn.disabled = true; btn.innerText = "Mengirim...";
@@ -280,9 +361,10 @@
             alert('🚀 Pesanan Anda Sukses Terkirim! Silakan tunggu panggilan dari kasir.');
             btn.disabled = false; btn.innerText = "🚀 Kirim Pesanan Langsung ke Kasir";
             document.getElementById('namaPelanggan').value = '';
-            document.getElementById('daftarPesananPelanggan').innerHTML = `<div class="pesanan-row"><input type="text" class="input-menu-pelanggan" placeholder="Contoh: Mie Iblis Lvl 3"><input type="number" class="input-qty-pelanggan" value="1" min="1"><button class="btn-hapus" onclick="hapusBaris(this)">X</button></div>`;
+            document.getElementById('daftarPesananPelanggan').innerHTML = '';
+            tambahBaris('daftarPesananPelanggan');
         }).catch((err) => {
-            alert('Gagal mengirim pesanan. Silakan periksa kembali pengaturan Firebase Rules Anda.');
+            alert('Gagal mengirim pesanan. Silakan periksa kembali jaringan internet atau aturan Firebase.');
             console.error(err);
             btn.disabled = false; btn.innerText = "🚀 Kirim Pesanan Langsung ke Kasir";
         });
@@ -327,6 +409,7 @@
 
     function ubahStatus(id, stat) { db.ref('orders/' + id).update({ status: stat }); }
 
+    // Membuka mode edit pesanan manual di kasir
     function pemicuEdit(id) {
         let p = localOrdersCache.find(item => item.id === id);
         if(!p) return;
@@ -334,10 +417,26 @@
         document.getElementById('namaPemesan').value = p.pemesan;
         const container = document.getElementById('daftarPesanan');
         container.innerHTML = '';
+        
         p.listMenu.forEach(m => {
             const row = document.createElement('div');
             row.className = 'pesanan-row';
-            row.innerHTML = `<input type="text" class="input-menu" value="${m.menu}"><input type="number" class="input-qty" value="${m.qty}"><button class="btn-hapus" onclick="hapusBaris(this)">X</button>`;
+            
+            // Membuat opsi berdasar data menu global + mempertahankan proteksi jika item menu cloud sempat terhapus
+            let opsiMenuHTML = '<option value="">-- Pilih Menu --</option>';
+            let menuMasihAktif = daftarMenuGlobal.some(menuItem => menuItem.nama === m.menu);
+            if(!menuMasihAktif && m.menu) {
+                opsiMenuHTML += `<option value="${m.menu}" selected>${m.menu} (Menu Lama)</option>`;
+            }
+            daftarMenuGlobal.forEach(menuItem => {
+                let selected = menuItem.nama === m.menu ? 'selected' : '';
+                opsiMenuHTML += `<option value="${menuItem.nama}" ${selected}>${menuItem.nama}</option>`;
+            });
+
+            row.innerHTML = `
+                <select class="input-menu">${opsiMenuHTML}</select>
+                <input type="number" class="input-qty" value="${m.qty}"><button class="btn-hapus" onclick="hapusBaris(this)">X</button>
+            `;
             container.appendChild(row);
         });
         document.getElementById('btnSimpanUtama').innerText = 'Simpan Perubahan';

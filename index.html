@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Order QR - DenyNov</title>
     
+    <!-- LINK SOURCE FIREBASE (Menggunakan Jalur Kompatibilitas agar Sistem Lancar) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 
@@ -66,12 +67,12 @@
 
 <script>
   // ========================================================================
-  // 🔐 DATA FIREBASE UTARA ANDA (SUDAH AKTIF & TERHUBUNG) 🔐
+  // 🔐 DATA FIREBASE ASLI (SUDAH TERHUBUNG KE SERVER ASIA-SOUTHEAST1) 🔐
   // ========================================================================
   const firebaseConfig = {
     apiKey: "AIzaSyCzcmIlaf9hi07OTP8Iq1zVeNlqvt0ATwk",
     authDomain: "menu-pesanan.firebaseapp.com",
-    databaseURL: "https://menu-pesanan-default-rtdb.firebaseio.com", 
+    databaseURL: "https://menu-pesanan-default-rtdb.asia-southeast1.firebasedatabase.app", 
     projectId: "menu-pesanan",
     storageBucket: "menu-pesanan.firebasestorage.app",
     messagingSenderId: "80214416593",
@@ -85,6 +86,9 @@
   const db = firebase.database();
 </script>
 
+<!-- ===================================== -->
+<!-- TAMPILAN SISI LAPTOP KASIR UTAMA      -->
+<!-- ===================================== -->
 <div id="viewKasir" style="display: none;">
     <div class="container">
         <div class="logo-wrapper">
@@ -92,7 +96,7 @@
             <div id="kotakUpload" class="logo-placeholder" onclick="bukaPilihFile()">
                 📂 Klik di sini untuk mengunci<br><b>Logo Best</b> Anda
             </div>
-            <img id="gambarLogoApp" src="" alt="Logo" class="app-logo" onclick="bukaPilihFile()" title="Ganti Logo">
+            <img id="gambarLogoApp" src="" alt="Logo" class="app-logo" onclick="biahPilihFile()" title="Ganti Logo">
             <div id="teksGantiLogo" class="btn-ganti-logo" onclick="bukaPilihFile()">Ganti Logo</div>
         </div>
 
@@ -126,6 +130,9 @@
     </div>
 </div>
 
+<!-- ===================================== -->
+<!-- TAMPILAN SISI SCAN HP PELANGGAN       -->
+<!-- ===================================== -->
 <div id="viewPelanggan" style="display: none;">
     <div class="container">
         <div style="text-align: center; margin-bottom: 15px;">
@@ -154,9 +161,11 @@
     </div>
 </div>
 
+<!-- KOTAK TERSEMBUNYI UNTUK PRINT -->
 <div id="areaCetak"></div>
 
 
+<!-- LOGIKAL PEMROGRAMAN JAVASCRIPT -->
 <script>
     let idPesananSedangDiedit = null;
     let localOrdersCache = [];

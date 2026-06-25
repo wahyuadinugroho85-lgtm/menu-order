@@ -37,7 +37,7 @@
         .bg-pelanggan { background-color: #e67e22; }
         
         .rekap-card { background: #fff; padding: 15px; margin-bottom: 15px; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 6px solid #f39c12; position: relative; }
-        .status-dimasak { border-left-color: #3498db; }
+        .status-proses { border-left-color: #3498db; }
         .status-selesai { border-left-color: #2ecc71; opacity: 0.7; }
         .rekap-top { display: flex; justify-content: space-between; align-items: center; }
         .rekap-nama { font-weight: bold; font-size: 16px; }
@@ -455,13 +455,13 @@
             
             let html = '';
             rekapArr.forEach(p => {
-                let classStat = p.status === 'Sedang Dimasak' ? 'status-dimasak' : (p.status === 'Selesai' ? 'status-selesai' : '');
+                let classStat = p.status === 'Sedang Proses' ? 'status-proses' : (p.status === 'Selesai' ? 'status-selesai' : '');
                 html += `<div class="rekap-card ${classStat}">
                     <div class="rekap-top">
                         <div class="rekap-nama">${p.pemesan}</div>
                         <select class="select-status" onchange="ubahStatus('${p.id}', this.value)">
                             <option value="Diterima" ${p.status==='Diterima'?'selected':''}>⏳ Diterima</option>
-                            <option value="Sedang Dimasak" ${p.status==='Sedang Dimasak'?'selected':''}>🔥 Dimasak</option>
+                            <option value="Sedang Proses" ${p.status==='Sedang Proses'?'selected':''}>🔥 Proses</option>
                             <option value="Selesai" ${p.status==='Selesai'?'selected':''}>✅ Selesai</option>
                         </select>
                     </div>

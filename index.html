@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Order QR - DenyNov</title>
     
-    <!-- LINK SOURCE FIREBASE (Menggunakan Jalur Kompatibilitas agar Sistem Lancar) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 
@@ -48,6 +47,12 @@
         .btn-print-item { background-color: #7f8c8d; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .btn-reset-rekap { background-color: #e74c3c; color: white; padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; float: right; font-weight: bold; }
 
+        /* Style Tambahan untuk Notifikasi Pelanggan */
+        .status-badge { display: inline-block; padding: 6px 12px; border-radius: 20px; font-weight: bold; color: white; font-size: 14px; margin-top: 5px; }
+        .badge-diterima { background-color: #f39c12; }
+        .badge-proses { background-color: #3498db; }
+        .badge-selesai { background-color: #2ecc71; }
+
         #areaCetak { display: none; }
 
         /* FORMAT STRUK KASIR THERMAL 58MM */
@@ -88,12 +93,8 @@
   let batasWaktuNotifikasi = Date.now();
 </script>
 
-<!-- ===================================== -->
-<!-- TAMPILAN SISI LAPTOP KASIR UTAMA      -->
-<!-- ===================================== -->
 <div id="viewKasir" style="display: none;">
     
-    <!-- PANEL MANAGEMEN DAFTAR MENU (KASIR ONLY) -->
     <div class="container" style="border-top: 6px solid #9b59b6;">
         <h3>⚙️ Kelola Pilihan Menu Kuliner</h3>
         <div style="display: flex; gap: 10px; margin-bottom: 15px;">
@@ -101,8 +102,7 @@
             <button onclick="tambahMenuKeCloud()" style="background-color: #9b59b6; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">+ Tambah Menu</button>
         </div>
         <div id="daftarMenuKasir" style="max-height: 180px; overflow-y: auto; border: 1px solid #eee; padding: 10px; border-radius: 6px; background: #fafafa;">
-            <!-- List menu terdaftar dimuat otomatis di sini -->
-        </div>
+            </div>
     </div>
 
     <div class="container">
@@ -128,7 +128,6 @@
             <div style="width: 40px;"></div>
         </div>
         
-        <!-- Baris dinamis -->
         <div id="daftarPesanan"></div>
         
         <button class="btn-tambah" onclick="tambahBaris('daftarPesanan')">+ Tambah Item</button>
@@ -143,10 +142,13 @@
     </div>
 </div>
 
-<!-- ===================================== -->
-<!-- TAMPILAN SISI SCAN HP PELANGGAN       -->
-<!-- ===================================== -->
 <div id="viewPelanggan" style="display: none;">
+    <div class="container" id="cardStatusPelanggan" style="display: none; border-top: 6px solid #e67e22; background: #fffcf9;">
+        <h3 style="margin-bottom: 10px; text-align: left; font-size: 16px;">⏱️ Status Pesanan Anda:</h3>
+        <div id="infoPelacakan">
+            </div>
+    </div>
+
     <div class="container">
         <div style="text-align: center; margin-bottom: 15px;">
             <img id="logoPelanggan" src="" alt="Logo" style="max-width: 100px; display: none;">
@@ -164,7 +166,6 @@
             <div style="width: 40px;"></div>
         </div>
         
-        <!-- Baris pelanggan -->
         <div id="daftarPesananPelanggan"></div>
         
         <button class="btn-tambah" onclick="tambahBaris('daftarPesananPelanggan')">+ Tambah Menu Lain</button>
@@ -172,15 +173,14 @@
     </div>
 </div>
 
-<!-- KOTAK TERSEMBUNYI UNTUK PRINT -->
 <div id="areaCetak"></div>
 
 
-<!-- LOGIKAL PEMROGRAMAN JAVASCRIPT -->
 <script>
     let idPesananSedangDiedit = null;
     let localOrdersCache = [];
     let daftarMenuGlobal = []; 
+    let idPesananPelangganAktif = localStorage.getItem('lastOrderIdDenyNov') || null;
 
     window.onload = function() {
         // 1. Sinkronisasi logo warung via cloud
@@ -207,16 +207,7 @@
 
             // Memperbarui opsi pilihan dropdown aktif
             const semuaSelects = document.querySelectorAll('.input-menu, .input-menu-pelanggan');
-            semuaSelects.forEach(select => {
-                const nilaiSebelumnya = select.value;
-                select.innerHTML = '<option value="">-- Pilih Menu --</option>';
-                daftarMenuGlobal.forEach(m => {
-                    const opt = document.createElement('option');
-                    opt.value = m.nama; opt.innerText = m.nama;
-                    if(m.nama === nilaiSebelumnya) opt.selected = true;
-                    select.appendChild(opt);
-                });
-            });
+            allSelectsRefresh(semuaSelects);
 
             if(document.getElementById('daftarPesanan').children.length === 0) {
                 tambahBaris('daftarPesanan');
@@ -231,12 +222,30 @@
         if (urlParams.get('mode') === 'pelanggan') {
             document.getElementById('viewKasir').style.display = 'none';
             document.getElementById('viewPelanggan').style.display = 'block';
+            
+            // Jika ada riwayat transaksi di HP ini, langsung lacak statusnya
+            if (idPesananPelangganAktif) {
+                lacakStatusPesananPelanggan(idPesananPelangganAktif);
+            }
         } else {
             document.getElementById('viewPelanggan').style.display = 'none';
             document.getElementById('viewKasir').style.display = 'block';
             dengarkanPesananMasuk();
         }
     };
+
+    function allSelectsRefresh(semuaSelects) {
+        semuaSelects.forEach(select => {
+            const nilaiSebelumnya = select.value;
+            select.innerHTML = '<option value="">-- Pilih Menu --</option>';
+            daftarMenuGlobal.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.nama; opt.innerText = m.nama;
+                if(m.nama === nilaiSebelumnya) opt.selected = true;
+                select.appendChild(opt);
+            });
+        });
+    }
 
     // --- FITUR NOTIFIKASI SUARA (Ting-Tung Elektronik) ---
     function bunyikanNotifikasiMasuk() {
@@ -407,19 +416,77 @@
         btn.disabled = true; btn.innerText = "Mengirim...";
 
         const newRef = db.ref('orders').push();
+        const orderId = newRef.key;
+
         newRef.set({
-            id: newRef.key, pemesan: nama,
+            id: orderId, pemesan: nama,
             waktu: new Date().toLocaleString('id-ID', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' }),
             listMenu: items, status: 'Diterima', timestamp: Date.now()
         }).then(() => {
-            alert('🚀 Pesanan Anda Sukses Terkirim! Silakan tunggu panggilan dari kasir.');
+            alert('🚀 Pesanan Anda Sukses Terkirim! Status pesanan Anda bisa dipantau langsung di bagian atas layar.');
             btn.disabled = false; btn.innerText = "🚀 Kirim Pesanan Langsung ke Kasir";
+            
+            // Simpan ID pesanan terakhir di browser pelanggan agar statusnya terkunci di HP tersebut
+            localStorage.setItem('lastOrderIdDenyNov', orderId);
+            idPesananPelangganAktif = orderId;
+            lacakStatusPesananPelanggan(orderId);
+
             document.getElementById('namaPelanggan').value = '';
             document.getElementById('daftarPesananPelanggan').innerHTML = '';
             tambahBaris('daftarPesananPelanggan');
         }).catch((err) => {
             alert('Gagal mengirim pesanan.');
             btn.disabled = false; btn.innerText = "🚀 Kirim Pesanan Langsung ke Kasir";
+        });
+    }
+
+    // --- FITUR REALTIME TRACKING UNTUK PELANGGAN ---
+    function lacakStatusPesananPelanggan(orderId) {
+        const cardStatus = document.getElementById('cardStatusPelanggan');
+        const infoPelacakan = document.getElementById('infoPelacakan');
+        
+        if(!cardStatus || !infoPelacakan) return;
+
+        // Dengarkan pembaruan status data order secara real-time dari Firebase
+        db.ref('orders/' + orderId).on('value', function(snapshot) {
+            const data = snapshot.val();
+            
+            // Jika pesanan dihapus oleh kasir dari rekap
+            if (!data) {
+                cardStatus.style.display = 'none';
+                return;
+            }
+
+            cardStatus.style.display = 'block';
+            let badgeClass = 'badge-diterima';
+            let teksStatus = '⏳ Antrean Diterima';
+
+            if (data.status === 'Sedang Proses') {
+                badgeClass = 'badge-proses';
+                teksStatus = '🔥 Sedang Diproses / Dimasak';
+            } else if (data.status === 'Selesai') {
+                badgeClass = 'badge-selesai';
+                teksStatus = '✅ Selesai (Silakan Ambil di Kasir)';
+            }
+
+            let detailMenu = '';
+            data.listMenu.forEach(m => {
+                detailMenu += `<div style="font-size: 13px; color: #555; margin-top:3px;">• ${m.menu} [${m.varian}] (${m.qty}x)</div>`;
+            });
+
+            infoPelacakan.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <strong>Atas Nama:</strong> ${data.pemesan}<br>
+                        <span style="font-size:11px; color:#7f8c8d;">Jam: ${data.waktu}</span>
+                    </div>
+                    <div class="status-badge ${badgeClass}">${teksStatus}</div>
+                </div>
+                <div style="margin-top: 10px; border-top: 1px dashed #ddd; padding-top: 8px;">
+                    <strong>Item Menu:</strong>
+                    ${detailMenu}
+                </div>
+            `;
         });
     }
 
